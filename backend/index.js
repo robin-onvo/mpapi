@@ -84,6 +84,8 @@ class Server {
 				message: "Page not found"
 			});
 		});
+
+		console.log("Server setup complete");
 	}
 }
 

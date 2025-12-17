@@ -327,9 +327,9 @@ class mpapiServer {
 
 					for (let other of session.clients) {
 						if (!destination || other.clientId === destination) {
-							if (other !== client && other.isOpen()) {
+							if (other.isOpen())
 								other.send(serialized);
-							}
+
 						}
 					}
 				} break;

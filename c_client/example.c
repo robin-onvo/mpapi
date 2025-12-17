@@ -147,7 +147,7 @@ int main_list(mpapi* api)
 int main()
 {
 
-	mpapi* api = mpapi_create("kontoret.onvo.se", 9001, "c2438167-831b-4bf7-8bdc-0489eaf98e25");
+	mpapi* api = mpapi_create("mpapi.se", 9001, "c2438167-831b-4bf7-8bdc-0489eaf98e25");
 	if (!api)
 	{
 		printf("Failed to create mpapi instance\n");

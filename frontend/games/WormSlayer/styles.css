@@ -1,0 +1,225 @@
+:root {
+  /* Grayscale */
+  --able-gray-10: #141414;  
+  --able-gray-20: #2D2D2D;  
+  --able-gray-30: #3C3C3C;  
+  --able-gray-40: #484848;  
+  --able-gray-50: #646464;
+  --able-gray-75: #C0C0C0;
+  --able-gray-80: #CCCCCC;  
+
+  /* Text */
+  --able-text: #EEEEEE;     
+
+  /* Vibrant accents */
+  --able-hot-pink: #FF39D4;     
+  --able-fuchsia-tom: #FF2B6F;  
+  --able-peach: #FFA374;        
+  --able-coral: #FF94A6;        
+  --able-cyan: #19E9FF;         
+  --able-aqua: #5CFFE8;         
+  --able-orange: #F39420;       
+  --able-lemon: #F7F47C;        
+  --able-pale-yellow: #F7F47C;  
+
+  --spacing-0-25: 2px;    
+  --spacing-0-5: 4px;     
+  --spacing-0-75: 6px;    
+  --spacing-1: 8px;       
+  --spacing-1-5: 12px;    
+  --spacing-2: 16px;
+  --spacing-3: 24px;
+  --spacing-4: 32px;
+  --spacing-5: 40px;
+  --spacing-6: 48px;
+  --spacing-8: 64px;
+  --spacing-10: 80px;
+  --spacing-12: 96px;
+  --spacing-16: 128px;
+  --spacing-20: 160px;
+  --spacing-24: 192px;
+  --spacing-32: 256px;
+  --spacing-40: 320px;
+  --spacing-48: 384px;
+  --spacing-64: 512px;
+  --spacing-128: 1024px;
+}
+
+@font-face {
+  font-family: 'VT323';
+  src: url('assets/fonts/VT323-Regular.ttf') format('truetype');
+}
+@font-face {
+  font-family: 'Silkscreen';
+  src: url('assets/fonts/Silkscreen-Regular.ttf') format('truetype');
+}
+
+* {
+    background-color: var(--able-gray-20);
+    font-family: "VT323", monospace;   
+    font-weight: 400;
+    font-style: normal;
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+}
+
+.container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    height: 100vh;
+}
+
+h1 {
+    color: var(--able-gray-50);
+    font-size: var(--spacing-24);
+}
+
+.infoSection {
+    display: flex;
+    justify-content: right;
+    width: var(--spacing-128);
+    margin-top: var(--spacing-1);
+    margin-bottom: var(--spacing-1);
+    gap: var(--spacing-1)
+}
+
+
+#infoBtn {
+    margin-top: var(--spacing-1);
+    background-color: var(--able-gray-50);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: var(--spacing-5);
+    height: var(--spacing-5);
+    color: var(--able-gray-20)
+}
+
+.infoColor {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: var(--able-fuchsia-tom);
+    height: var(--spacing-4);
+    width: var(--spacing-4);
+    font-family: "VT323", monospace;
+    font-size: var(--spacing-4);
+    
+
+}
+
+#timer {
+    margin-top: var(--spacing-1);
+    background-color: var(--able-gray-50);
+    font-size: var(--spacing-4);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: var(--spacing-16);
+    height: var(--spacing-5);
+    color: var(--able-gray-20);
+    font-family: "VT323", monospace;
+    font-size: var(--spacing-4);
+}
+
+/* Board section */
+
+#game-board {
+    background-color: var(--able-gray-50);
+
+    height: var(--spacing-64);
+    width: var(--spacing-128);
+    
+}
+
+/* Score Section */
+
+#score {
+    
+    width: var(--spacing-128);
+    display: flex;
+    justify-content: left;
+    align-items: left;
+    flex-direction: row;
+    gap: var(--spacing-1);
+}
+
+.scoreContainer {
+    margin-top: var(--spacing-1);
+    background-color: var(--able-gray-50);
+    font-size: var(--spacing-4);
+    display: flex;
+    justify-content: space-around;
+    align-items: center;
+    width: var(--spacing-12);
+    height: var(--spacing-5);
+    color: var(--able-gray-20)
+    
+}
+
+.playerSquare {
+    height: var(--spacing-3);
+    width: var(--spacing-3);
+    
+}
+
+
+.sq1 {
+    background-color: var(--able-cyan);
+}
+.sq2 {
+    background-color: var(--able-fuchsia-tom);
+}
+.sq3 {
+    
+    background-color: var(--able-lemon);
+}
+.sq4 {
+    background-color: var(--able-coral);
+}
+
+/* Title Screen Text */
+
+#game-board.title-screen {
+    display: flex;
+    flex-direction: column;      
+    justify-content: center;     
+    align-items: center;         
+    text-align: center;
+    background-color: var(--able-gray-50);
+    height: var(--spacing-64);
+    width: var(--spacing-128);
+    
+}
+
+#game-board.title-screen .main-title {
+    font-size: var(--spacing-24);
+    color: var(--able-gray-20);
+    background-color: var(--able-gray-50);
+    font-family: "VT323", monospace;
+    font-weight: 400;
+    font-style: normal;
+}
+
+#game-board.title-screen .subtitle {
+    font-size: var(--spacing-6);
+    font-family: "Silkscreen", sans-serif; font-weight: 400; font-style: normal; 
+    color: var(--able-gray-20);
+    background-color: var(--able-gray-50);
+}
+
+#game-board {
+    background-color: var(--able-gray-20) !important;  /* #2D2D2D alltid för marginal/gap */
+}
+
+footer {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
+    color: var(--able-gray-50);
+    font-size: var(--spacing-3);
+}

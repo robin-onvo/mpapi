@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link rel="stylesheet" href="styles.css" />
+    <!-- Preload local fonts med explicit as="font" för att tysta varningar -->
+    <link
+      rel="preload"
+      href="assets/fonts/VT323-Regular.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin="anonymous"
+    />
+    <link
+      rel="preload"
+      href="assets/fonts/Silkscreen-Regular.ttf"
+      as="font"
+      type="font/ttf"
+      crossorigin="anonymous"
+    />
+    <script type="module" src="./src/main.js"></script>
+    <title>Square Crawler: The Game</title>
+  </head>
+  <body>
+    <section class="container">
+      <div class="infoSection">
+        <div id="infoBtn">
+          <div class="infoColor">?</div>
+        </div>
+        <div id="timer">Time: 000</div>
+      </div>
+      <canvas id="game-board" width="1024" height="512"></canvas>
+      <section id="score">
+        <div class="scoreContainer player1">
+          <div class="playerSquare sq1"></div>
+          000
+        </div>
+        <div class="scoreContainer player2">
+          <div class="playerSquare sq2"></div>
+          000
+        </div>
+        <div class="scoreContainer player3">
+          <div class="playerSquare sq3"></div>
+          000
+        </div>
+        <div class="scoreContainer player4">
+          <div class="playerSquare sq4"></div>
+          000
+        </div>
+      </section>
+    </section>
+    <!-- <footer><p>Game and Very Beautiful Music by tomacBarin.json()</p></footer> -->
+  </body>
+</html>

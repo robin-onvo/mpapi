@@ -47,6 +47,7 @@ ui.onSessionClick = async (sessionId) => {
 
 		ui.updateOnlineList([...client.onlineUsers.values()], client.clientId);
 		ui.setStatus("Ansluten.");
+
 	} catch (err) {
 		ui.setStatus("Kunde inte ansluta. Session kan vara stängd.");
 	}

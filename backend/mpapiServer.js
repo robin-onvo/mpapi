@@ -169,14 +169,15 @@ class mpapiServer {
 		switch (cmd) {
 			case "host":
 				{
-					if (!sessionId)
-						sessionId = this.generateSessionId();
+					sessionId = this.generateSessionId();
 
 					let session = {
 						identifier: identifier,
 						messageId: 0,
 						isPrivate: data.private === true,
 						name: typeof data.name === "string" ? data.name : "Unnamed",
+						maxClients: typeof data.maxClients === "number" ? data.maxClients : 0,
+						hostMigration: data.hostMigration === true ? true : false,
 						host: client,
 						clients: [client]
 					};
@@ -193,28 +194,74 @@ class mpapiServer {
 					}));
 				} break;
 
+			case "host_setup": {
+				let session = this.sessions.get(sessionId);
+				if (!session) return;
+
+				if (session.identifier !== identifier) {
+					client.send(JSON.stringify({
+						session: sessionId,
+						cmd: "host_setup",
+						clientId: client.clientId,
+						data: { status: "error", reason: "identifier_mismatch" }
+					}));
+					return;
+				}
+
+				if (session.host !== client) {
+					client.send(JSON.stringify({
+						session: sessionId,
+						cmd: "host_setup",
+						clientId: client.clientId,
+						data: { status: "error", reason: "not_host" }
+					}));
+					return;
+				}
+
+				// Uppdatera sessionsinställningar
+				if (typeof data.name === "string") {
+					session.name = data.name;
+				}
+
+				if (typeof data.private === "boolean") {
+					session.isPrivate = data.private;
+				}
+
+				if (typeof data.maxClients === "number") {
+					session.maxClients = data.maxClients;
+				}
+
+				if (typeof data.hostMigration === "boolean") {
+					session.hostMigration = data.hostMigration;
+				}
+
+				client.send(JSON.stringify({
+					session: sessionId,
+					cmd: "host_setup",
+					clientId: client.clientId,
+					data: { status: "ok" }
+				}));
+
+			} break;
+
 			case "join":
 				{
-					let session = this.sessions.get(sessionId);
-					if (!session) {
-						session = {
-							identifier: identifier,
-							messageId: 0,
-							isPrivate: data.private === true,
-							name: typeof data.name === "string" ? data.name : "Unnamed",
-							host: client,
-							clients: [client]
-						};
-
-						this.sessions.set(sessionId, session);
-					}
-
 					if (session.identifier !== identifier) {
 						client.send(JSON.stringify({
 							session: sessionId,
 							cmd: "join",
 							clientId: client.clientId,
 							data: { status: "error", reason: "identifier_mismatch" }
+						}));
+						return;
+					}
+
+					if (session.maxClients > 0 && session.clients.length >= session.maxClients) {
+						client.send(JSON.stringify({
+							session: sessionId,
+							cmd: "join",
+							clientId: client.clientId,
+							data: { status: "error", reason: "session_full" }
 						}));
 						return;
 					}
@@ -296,7 +343,7 @@ class mpapiServer {
 
 					for (const [key, session] of this.sessions) {
 
-						if (!session.isPrivate) {
+						if (!session.isPrivate && session.identifier === identifier) {
 							data.data.list.push({
 								id: key,
 								name: session.name,
@@ -351,19 +398,39 @@ class mpapiServer {
 
 			// Om klienten var host, ta bort hela sessionen och informera övriga klienter
 			if (client === session.host) {
-				const serialized = JSON.stringify({
-					cmd: "closed",
-					data: { reason: "host_disconnected" }
-				});
+				let serialized;
 
-				session.clients.forEach((other) => {
-					if (other !== client && other.isOpen()) {
-						other.send(serialized);
-						other.sessionId = null;
-					}
-				});
+				if (session.hostMigration && session.clients.length > 1) {
 
-				this.sessions.delete(sessionId);
+					session.host = session.clients[0];
+
+					const serialized = JSON.stringify({
+						cmd: "event",
+						data: { host: session.host.clientId, reason: "host_migrated" }
+					});
+
+					session.clients.forEach((other) => {
+						if (other !== client && other.isOpen()) {
+							other.send(serialized);
+						}
+					});
+				} else {
+					const serialized = JSON.stringify({
+						cmd: "closed",
+						data: { reason: "host_disconnected" }
+					});
+
+					session.clients.forEach((other) => {
+						if (other !== client && other.isOpen()) {
+							other.send(serialized);
+							other.sessionId = null;
+						}
+					});
+
+					this.sessions.delete(sessionId);
+				}
+
+
 			}
 		}
 

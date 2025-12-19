@@ -246,6 +246,17 @@ class mpapiServer {
 
 			case "join":
 				{
+					let session = this.sessions.get(sessionId);
+					if (!session) {
+						client.send(JSON.stringify({
+							session: sessionId,
+							cmd: "join",
+							clientId: client.clientId,
+							data: { status: "error", reason: "session_not_found" }
+						}));
+						return;
+					}
+
 					if (session.identifier !== identifier) {
 						client.send(JSON.stringify({
 							session: sessionId,

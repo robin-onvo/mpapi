@@ -13,6 +13,7 @@ export class mpapi {
 		this.sessionId = null;
 		this.listeners = new Set();
 		this.queue = [];
+		this.connected = false;
 
 		this.onHost = null;
 		this.onJoin = null;
@@ -23,6 +24,8 @@ export class mpapi {
 		}
 
 		this._connect();
+
+		console.loog("mpapi initialized with serverUrl:", this.serverUrl, "and identifier:", this.identifier);
 	}
 
 	_connect() {
@@ -36,6 +39,7 @@ export class mpapi {
 
 		this.socket.addEventListener('open', () => {
 			console.log('WebSocket connection established');
+			this.connected = true;
 
 			const pending = this.queue.slice();
 			this.queue.length = 0;

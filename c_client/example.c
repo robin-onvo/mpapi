@@ -49,6 +49,11 @@ int main_host(mpapi* api)
 	json_object_set_new(data, "name", json_string("My session"));
 	json_object_set_new(data, "private", json_boolean(false));
 
+	json_t* hostPayload = json_object();  /* t.ex. spelinställningar */
+	json_object_set_new(hostPayload, "whois", json_string("Robin"));
+	json_object_set_new(hostPayload, "map", json_string("forest"));
+	json_object_set_new(data, "payload", hostPayload);
+
 	char *session = NULL;
 	char *clientId = NULL;
 	json_t *hostData = NULL;
@@ -86,6 +91,11 @@ int main_join(mpapi* api, const char* sessionId)
 	if (rc == MPAPI_OK) {
 		printf("Ansluten till session: %s (clientId: %s)\n", joinedSession, joinedClientId);
 		/* joinData kan innehålla status eller annan info */
+
+		char* str = json_dumps(joinData, JSON_INDENT(2));
+		printf("Join data: %s\n", str);
+		free(str);
+
 		if (joinData) json_decref(joinData);
 		free(joinedSession);
 		free(joinedClientId);
@@ -135,7 +145,7 @@ int main_list(mpapi* api)
 	}
 
 	if(firstSessionId)
-		main_join(api, "HU2J7D");
+		main_join(api, firstSessionId);
 	else
 		main_host(api);
 
@@ -147,27 +157,45 @@ int main_list(mpapi* api)
 int main()
 {
 
-	mpapi* api = mpapi_create("mpapi.se", 9001, "c2438167-831b-4bf7-8bdc-0489eaf98e25");
+	mpapi* api = mpapi_create("localhost", 9001, "c2438167-831b-4bf7-8bdc-0489eaf98e25");
 	if (!api)
 	{
 		printf("Failed to create mpapi instance\n");
 		return -1;
 	}
 
+	mpapi_debug(api, true);
+
 	//main_host(api);
 	main_list(api);
 	//main_join(api, "HU2J7D");
 
 
-	int listener_id = mpapi_listen(api, on_mpapi_event, NULL);
+	mpapi_session sessionInfo;
+	mpapi_getSessionInfo(api, &sessionInfo);
 
+	printf("Session info:\n");
+	printf(" Session ID: %s\n", sessionInfo.id ? sessionInfo.id : "null");
+	printf(" Client ID: %s\n", sessionInfo.clientId);
+	printf(" Host ID: %s\n", sessionInfo.hostId);
+	printf(" Name: %s\n", sessionInfo.name);
+	printf(" Max Clients: %d\n", sessionInfo.maxClients);
+	printf(" Host Migration: %s\n", sessionInfo.hostMigration ? "true" : "false");
+	printf(" Is Host: %s\n", sessionInfo.isHost ? "true" : "false");
+	printf(" Is Private: %s\n", sessionInfo.isPrivate ? "true" : "false");
+	printf(" Clients: %s\n", sessionInfo.clients ? json_dumps(sessionInfo.clients, JSON_INDENT(2)) : "null");
+	printf(" Payload: %s\n", sessionInfo.payload ? json_dumps(sessionInfo.payload, JSON_INDENT(2)) : "null");
+	printf("\n");
+
+	int listener_id = mpapi_listen(api, on_mpapi_event, NULL);
+	
 	json_t* data = json_object();
 	json_object_set_new(data, "score", json_integer(100));
 
 	while (1)
 	{
-		int rc = mpapi_game(api, data, NULL);
-		printf("Skickade game-data, rc=%d\n", rc);
+		//int rc = mpapi_game(api, data, NULL);
+		//printf("Skickade game-data, rc=%d\n", rc);
 
 		sleep(1);
 	}

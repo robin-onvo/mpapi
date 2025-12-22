@@ -169,6 +169,14 @@ class mpapiServer {
 		switch (cmd) {
 			case "host":
 				{
+					if (data.name && typeof data.name !== "string") {
+						data.name = "Unnamed";
+					} else if (data.name.toString().length === 0) {
+						data.name = "Unnamed";
+					} else if (data.name.toString().length > 64) {
+						data.name = data.name.toString().substring(0, 64);
+					}
+
 					sessionId = this.generateSessionId();
 
 					let session = {
@@ -191,7 +199,12 @@ class mpapiServer {
 						session: sessionId,
 						cmd: "host",
 						clientId: client.clientId,
-						data
+						name: session.name,
+						maxClients: session.maxClients,
+						hostMigration: session.hostMigration,
+						isPrivate: session.isPrivate,
+						clients: session.clients.map(c => c.clientId),
+						payload: data.payload || {},
 					}));
 				} break;
 
@@ -257,7 +270,7 @@ class mpapiServer {
 							session: sessionId,
 							cmd: "join",
 							clientId: client.clientId,
-							data: { status: "error", reason: "session_not_found" }
+							error: "session_not_found"
 						}));
 						return;
 					}
@@ -267,7 +280,7 @@ class mpapiServer {
 							session: sessionId,
 							cmd: "join",
 							clientId: client.clientId,
-							data: { status: "error", reason: "identifier_mismatch" }
+							error: "identifier_mismatch"
 						}));
 						return;
 					}
@@ -277,7 +290,7 @@ class mpapiServer {
 							session: sessionId,
 							cmd: "join",
 							clientId: client.clientId,
-							data: { status: "error", reason: "session_full" }
+							error: "session_full"
 						}));
 						return;
 					}
@@ -287,7 +300,7 @@ class mpapiServer {
 							session: sessionId,
 							cmd: "join",
 							clientId: client.clientId,
-							data: { status: "error", reason: "already_joined" }
+							error: "already_joined"
 						}));
 						return;
 					}
@@ -296,12 +309,15 @@ class mpapiServer {
 
 					client.send(JSON.stringify({
 						session: sessionId,
-						name: session.name,
-						host: session.host.clientId,
-						clients: session.clients.map(c => c.clientId),
 						cmd: "join",
 						clientId: client.clientId,
-						data: session.payload
+						hostId: session.host.clientId,
+						name: session.name,
+						maxClients: session.maxClients,
+						hostMigration: session.hostMigration,
+						isPrivate: session.isPrivate,
+						clients: session.clients.map(c => c.clientId),
+						payload: session.payload || {}
 					}));
 
 					const joinedData = JSON.stringify({

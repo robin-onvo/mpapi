@@ -2,6 +2,7 @@
 #define MPAPI_API_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "jansson/jansson.h"
 
 #ifdef __cplusplus
@@ -9,6 +10,20 @@ extern "C" {
 #endif
 
 typedef struct mpapi mpapi;
+
+typedef struct mpapi_session {
+    char* id;
+	char clientId[37];
+	char hostId[37];
+	char name[65];
+	int maxClients;
+	bool hostMigration;
+	bool isHost;
+	bool isPrivate;
+	json_t* clients;
+	json_t* payload;
+
+} mpapi_session;
 
 /* Callback‑typ för inkommande events från servern. */
 typedef void (*mpapiListener)(
@@ -32,6 +47,10 @@ enum {
 
 /* Skapar en ny API‑instans. Returnerar NULL vid fel. */
 mpapi *mpapi_create(const char *server_host, uint16_t server_port, const char *identifier);
+
+void mpapi_debug(mpapi *api, bool enable);
+
+void mpapi_getSessionInfo(mpapi* api, mpapi_session* out_session);
 
 /* Stänger ner anslutning, stoppar mottagartråd och frigör minne. */
 void mpapi_destroy(mpapi *api);

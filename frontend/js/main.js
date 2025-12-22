@@ -3,7 +3,8 @@ import { ChatStorage } from "./storage.js";
 import { ChatUI } from "./chatUI.js";
 
 //const SERVER_URL = `${location.protocol === "https:" ? "wss" : "ws"}://${location.host}/net`;
-const SERVER_URL = "wss://mpapi.se/net";
+//const SERVER_URL = "wss://mpapi.se/net";
+const SERVER_URL = "ws://localhost:8080/net";
 
 const ui = new ChatUI();
 const client = new ChatClient(SERVER_URL);

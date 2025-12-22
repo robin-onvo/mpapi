@@ -14,6 +14,7 @@ export class mpapi {
 		this.listeners = new Set();
 		this.queue = [];
 		this.connected = false;
+		this.debug = false;
 
 		this.onHost = null;
 		this.onJoin = null;
@@ -54,6 +55,9 @@ export class mpapi {
 		this.socket.addEventListener('message', (event) => {
 			this.stats.rx.tick(1, event.data.byteLength ? event.data.byteLength : event.data.length);
 
+			if (this.debug)
+				console.log("Received raw message:", event.data);
+
 			let payload;
 			try {
 				payload = JSON.parse(event.data);
@@ -85,16 +89,6 @@ export class mpapi {
 					this.onHost(session, clientId, data);
 
 			} else if (cmd === 'join') {
-				/*
-					session: sessionId,
-					name: session.name,
-					host: session.host.clientId,
-					clients: session.clients.map(c => c.clientId),
-					cmd: "join",
-					clientId: client.clientId,
-					data
-				*/
-
 				delete payload.cmd;
 
 				this.sessionId = payload.session;
@@ -132,6 +126,9 @@ export class mpapi {
 
 	_enqueueOrSend(serializedMessage) {
 		this.stats.tx.tick(1, serializedMessage.byteLength ? serializedMessage.length : 0);
+
+		if (this.debug)
+			console.log("Sending raw message:", serializedMessage);
 
 		if (this.socket && this.socket.readyState === WebSocket.OPEN) {
 			this.socket.send(serializedMessage);

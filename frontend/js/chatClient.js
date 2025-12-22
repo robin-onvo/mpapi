@@ -6,6 +6,8 @@ const APP_IDENTIFIER = "67bdb04f-6e7c-4d76-81a3-191f7d78dd45";
 export class ChatClient {
 	constructor(serverUrl) {
 		this.api = new mpapi(serverUrl, APP_IDENTIFIER);
+		this.api.debug = true;
+
 		this.sessionId = null;
 		this.clientId = null;
 		this.userName = null;
@@ -60,6 +62,8 @@ export class ChatClient {
 		if (roomName && roomName.trim()) {
 			payload.name = roomName.trim();
 		}
+
+		payload.payload = { test: "host payload data" }; // Example of custom host payload
 
 		const result = await this.api.host(payload);
 		this.sessionId = result.session;

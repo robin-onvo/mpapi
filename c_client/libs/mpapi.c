@@ -27,9 +27,12 @@ typedef struct ListenerSnapshot {
 struct mpapi {
     char *server_host;
     uint16_t server_port;
+
 	char identifier[37];
+
+	mpapi_session session;
+
     int sockfd;
-    char *session_id;
 
     pthread_t recv_thread;
     int recv_thread_started;
@@ -38,13 +41,15 @@ struct mpapi {
     pthread_mutex_t lock;
     ListenerNode *listeners;
     int next_listener_id;
+
+	bool debug;
 };
 
 static int connect_to_server(const char *host, uint16_t port);
 static int ensure_connected(mpapi *api);
 static int send_all(int fd, const char *buf, size_t len);
 static int send_json_line(mpapi *api, json_t *obj); /* tar över ägarskap */
-static int read_line(int fd, char **out_line);
+static int read_line(mpapi *api, char **out_line);
 static void *recv_thread_main(void *arg);
 static void process_line(mpapi *api, const char *line);
 static int start_recv_thread(mpapi *api);
@@ -78,11 +83,14 @@ mpapi *mpapi_create(const char *server_host, uint16_t server_port, const char *i
 	strncpy(api->identifier, identifier, 37);
 
     api->sockfd = -1;
-    api->session_id = NULL;
     api->recv_thread_started = 0;
     api->running = 0;
     api->listeners = NULL;
     api->next_listener_id = 1;
+
+	memset(&api->session, 0, sizeof(mpapi_session));
+
+	api->debug = false;
 
     if (pthread_mutex_init(&api->lock, NULL) != 0) {
         free(api->server_host);
@@ -91,6 +99,22 @@ mpapi *mpapi_create(const char *server_host, uint16_t server_port, const char *i
     }
 
     return api;
+}
+
+void mpapi_debug(mpapi *api, bool enable)
+{
+	if (!api) return;
+	api->debug = enable;
+}
+
+void mpapi_getSessionInfo(mpapi* api, mpapi_session* out_session)
+{
+	if (!api || !out_session) return;
+
+	memcpy(out_session, &api->session, sizeof(mpapi_session));
+
+	out_session->clients = json_copy(api->session.clients);
+	out_session->payload = json_copy(api->session.payload);
 }
 
 void mpapi_destroy(mpapi *api) {
@@ -116,9 +140,23 @@ void mpapi_destroy(mpapi *api) {
         node = next;
     }
 
-    if (api->session_id) {
-        free(api->session_id);
+	if(api->session.payload)
+	{
+		json_decref(api->session.payload);
+		api->session.payload = NULL;
+	}
+
+	if(api->session.clients)
+	{
+		json_decref(api->session.clients);
+		api->session.clients = NULL;
+	}
+
+    if (api->session.id) {
+        free(api->session.id);
+		api->session.id = NULL;
     }
+
     if (api->server_host) {
         free(api->server_host);
     }
@@ -127,13 +165,88 @@ void mpapi_destroy(mpapi *api) {
     free(api);
 }
 
+int mpapi_parse_session_info(mpapi* api, json_t* data)
+{
+	json_t* sessionId_val = json_object_get(data, "session");
+    if (!json_is_string(sessionId_val))
+        return MPAPI_ERR_PROTOCOL;
+    
+    const char* sessionId = json_is_string(sessionId_val) ? json_string_value(sessionId_val) : NULL;
+	if(!sessionId) 
+		return MPAPI_ERR_PROTOCOL;
+	
+    api->session.id = strdup(sessionId);
+    if (!api->session.id)
+        return MPAPI_ERR_IO;
+    
+    json_t* clientId_val = json_object_get(data, "clientId");
+    const char *clientId = json_is_string(clientId_val) ? json_string_value(clientId_val) : NULL;
+	if(!clientId)
+		return MPAPI_ERR_PROTOCOL;
+	
+	if(strlen(clientId) != 36)
+		return MPAPI_ERR_PROTOCOL;
+	
+
+	strcpy(api->session.clientId, clientId);
+	strcpy(api->session.hostId, clientId);
+
+	json_t* name_val = json_object_get(data, "name");
+    const char* name = json_is_string(name_val) ? json_string_value(name_val) : NULL;
+	if(name) {
+		strncpy(api->session.name, name, sizeof(api->session.name) - 1);
+		api->session.name[64] = '\0'; //Ensure null-termination
+	} else {
+		memset(api->session.name, 0, sizeof(api->session.name));
+	}
+
+	json_t* maxClients_val = json_object_get(data, "maxClients");
+	if (json_is_integer(maxClients_val)) {
+		api->session.maxClients = (int)json_integer_value(maxClients_val);
+	} else {
+		api->session.maxClients = 0;
+	}
+
+	json_t* hostMigration_val = json_object_get(data, "hostMigration");
+	if (json_is_boolean(hostMigration_val)) {
+		api->session.hostMigration = json_is_true(hostMigration_val);
+	} else {
+		api->session.hostMigration = false;
+	}
+
+	json_t* private_val = json_object_get(data, "isPrivate");
+	if (json_is_boolean(private_val)) {
+		api->session.isPrivate = json_is_true(private_val);
+	} else {
+		api->session.isPrivate = false;
+	}
+
+	json_t* clients_val = json_object_get(data, "clients");
+	if (json_is_array(clients_val)) {
+		api->session.clients = json_copy(clients_val);
+	} else {
+		api->session.clients = json_array();
+	}
+
+	json_t* payload_val = json_object_get(data, "payload");
+	if (json_is_object(payload_val)) {
+		api->session.payload = json_copy(payload_val);
+	} else {
+		api->session.payload = json_object();
+	}
+	
+	api->session.isHost = true;
+
+	return MPAPI_OK;
+}
+
 int mpapi_host(mpapi *api,
 				json_t *data,
                 char **out_session,
                 char **out_clientId,
                 json_t **out_data) {
     if (!api) return MPAPI_ERR_ARGUMENT;
-    if (api->session_id) return MPAPI_ERR_STATE;
+    if (api->session.id) return MPAPI_ERR_STATE;
 
     int rc = ensure_connected(api);
     if (rc != MPAPI_OK) return rc;
@@ -158,7 +271,7 @@ int mpapi_host(mpapi *api,
     }
 
     char *line = NULL;
-    rc = read_line(api->sockfd, &line);
+    rc = read_line(api, &line);
     if (rc != MPAPI_OK) {
         return rc;
     }
@@ -177,41 +290,20 @@ int mpapi_host(mpapi *api,
         return MPAPI_ERR_PROTOCOL;
     }
 
-    json_t *sess_val = json_object_get(resp, "session");
-    if (!json_is_string(sess_val)) {
-        json_decref(resp);
-        return MPAPI_ERR_PROTOCOL;
-    }
-    const char *session = json_string_value(sess_val);
+    rc = mpapi_parse_session_info(api, resp);
+	if (rc != MPAPI_OK) {
+		json_decref(resp);
+		return rc;
+	}
 
-    json_t *cid_val = json_object_get(resp, "clientId");
-    const char *clientId = json_is_string(cid_val) ? json_string_value(cid_val) : NULL;
-
-    json_t *data_val = json_object_get(resp, "data");
-    json_t *data_obj = NULL;
-    if (json_is_object(data_val)) {
-        data_obj = data_val;
-        json_incref(data_obj);
-    }
-
-    api->session_id = strdup(session);
-    if (!api->session_id) {
-        if (data_obj) json_decref(data_obj);
-        json_decref(resp);
-        return MPAPI_ERR_IO;
-    }
-
-    if (out_session) {
-        *out_session = strdup(session);
-    }
-    if (out_clientId && clientId) {
-        *out_clientId = strdup(clientId);
-    }
-    if (out_data) {
-        *out_data = data_obj;
-    } else if (data_obj) {
-        json_decref(data_obj);
-    }
+    if (out_session)
+        *out_session = strdup(api->session.id);
+    
+    if (out_clientId)
+        *(out_clientId) = strdup(api->session.clientId);
+    
+    if (out_data)
+        *(out_data) = json_copy(api->session.payload);	
 
     json_decref(resp);
 
@@ -242,12 +334,10 @@ int mpapi_list(mpapi *api, json_t **out_list)
 	}
 
 	char *line = NULL;
-	rc = read_line(api->sockfd, &line);
+	rc = read_line(api, &line);
 	if (rc != MPAPI_OK) {
 		return rc;
 	}
-
-	printf("Received line: %s\n", line); // Debug print
 
 	json_error_t jerr;
 	json_t *resp = json_loads(line, 0, &jerr);
@@ -289,7 +379,7 @@ int mpapi_join(mpapi *api,
                 char **out_clientId,
                 json_t **out_data) {
     if (!api || !sessionId) return MPAPI_ERR_ARGUMENT;
-    if (api->session_id) return MPAPI_ERR_STATE;
+    if (api->session.id) return MPAPI_ERR_STATE;
 
     int rc = ensure_connected(api);
     if (rc != MPAPI_OK) return rc;
@@ -315,7 +405,7 @@ int mpapi_join(mpapi *api,
     }
 
     char *line = NULL;
-    rc = read_line(api->sockfd, &line);
+    rc = read_line(api, &line);
     if (rc != MPAPI_OK) {
         return rc;
     }
@@ -334,73 +424,49 @@ int mpapi_join(mpapi *api,
         return MPAPI_ERR_PROTOCOL;
     }
 
-    json_t *sess_val = json_object_get(resp, "session");
-    const char *session = NULL;
-    if (json_is_string(sess_val)) {
-        session = json_string_value(sess_val);
-    }
+    rc = mpapi_parse_session_info(api, resp);
+	if (rc != MPAPI_OK) {
+		json_decref(resp);
+		return rc;
+	}
 
-    json_t *cid_val = json_object_get(resp, "clientId");
-    const char *clientId = json_is_string(cid_val) ? json_string_value(cid_val) : NULL;
+    json_t* error_val = json_object_get(resp, "error");
+	if (error_val) {
+		printf("Join rejected: %s\n", json_string_value(error_val));
+		json_decref(resp);
+		return MPAPI_ERR_REJECTED;
+	}
 
-    json_t *data_val = json_object_get(resp, "data");
-    json_t *data_obj = NULL;
-    if (json_is_object(data_val)) {
-        data_obj = data_val;
-        json_incref(data_obj);
-    }
-
-    int joinAccepted = 1;
-    if (data_obj) {
-        json_t *status_val = json_object_get(data_obj, "status");
-        if (json_is_string(status_val) &&
-            strcmp(json_string_value(status_val), "error") == 0) {
-            joinAccepted = 0;
-        }
-    }
-
-    if (joinAccepted && session) {
-        api->session_id = strdup(session);
-        if (!api->session_id) {
-            if (data_obj) json_decref(data_obj);
-            json_decref(resp);
-            return MPAPI_ERR_IO;
-        }
-    }
-
-    if (out_session && session) {
-        *out_session = strdup(session);
-    }
-    if (out_clientId && clientId) {
-        *out_clientId = strdup(clientId);
-    }
-    if (out_data) {
-        *out_data = data_obj;
-    } else if (data_obj) {
-        json_decref(data_obj);
-    }
+    if (out_session) 
+        *(out_session) = strdup(api->session.id);
+    
+    if (out_clientId) 
+        *(out_clientId) = strdup(api->session.clientId);   
+    
+    if (out_data)
+        *(out_data) = json_copy(api->session.payload);
 
     json_decref(resp);
 
-    if (joinAccepted && api->session_id) {
-        rc = start_recv_thread(api);
-        if (rc != MPAPI_OK) {
-            return rc;
-        }
-    }
+    rc = start_recv_thread(api);
+	if (rc != MPAPI_OK) {
+		return rc;
+	}
 
-    return joinAccepted ? MPAPI_OK : MPAPI_ERR_REJECTED;
+	api->session.isHost = false;
+
+    return MPAPI_OK;
 }
 
 int mpapi_game(mpapi *api, json_t *data, const char* destination) {
     if (!api || !data) return MPAPI_ERR_ARGUMENT;
-    if (api->sockfd < 0 || !api->session_id) return MPAPI_ERR_STATE;
+    if (api->sockfd < 0 || !api->session.id) return MPAPI_ERR_STATE;
 
     json_t *root = json_object();
     if (!root) return MPAPI_ERR_IO;
 
 	json_object_set_new(root, "identifier", json_string(api->identifier));
-    json_object_set_new(root, "session", json_string(api->session_id));
+    json_object_set_new(root, "session", json_string(api->session.id));
     json_object_set_new(root, "cmd", json_string("game"));
 
 	if(destination)
@@ -530,7 +596,8 @@ static int send_json_line(mpapi *api, json_t *obj) {
         return MPAPI_ERR_IO;
     }
 
-	printf("Sending JSON: %s\n", text); // Debug print
+	if(api->debug)
+		printf("TX: %s\n", text);
 
     size_t len = strlen(text);
     int fd = api->sockfd;
@@ -546,7 +613,7 @@ static int send_json_line(mpapi *api, json_t *obj) {
     return rc;
 }
 
-static int read_line(int fd, char **out_line) {
+static int read_line(mpapi *api, char **out_line) {
     if (!out_line) return MPAPI_ERR_ARGUMENT;
 
     size_t cap = 256;
@@ -556,7 +623,7 @@ static int read_line(int fd, char **out_line) {
 
     for (;;) {
         char c;
-        ssize_t n = recv(fd, &c, 1, 0);
+        ssize_t n = recv(api->sockfd, &c, 1, 0);
         if (n < 0) {
             if (errno == EINTR) continue;
             free(buf);
@@ -585,6 +652,10 @@ static int read_line(int fd, char **out_line) {
     }
 
     buf[len] = '\0';
+
+	if(api->debug)
+		printf("RX: %s\n", buf);
+
     *out_line = buf;
     return MPAPI_OK;
 }

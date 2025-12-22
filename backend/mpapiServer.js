@@ -179,6 +179,7 @@ class mpapiServer {
 						maxClients: typeof data.maxClients === "number" ? data.maxClients : 0,
 						hostMigration: data.hostMigration === true ? true : false,
 						host: client,
+						payload: data.payload || null,
 						clients: [client]
 					};
 
@@ -233,6 +234,10 @@ class mpapiServer {
 
 				if (typeof data.hostMigration === "boolean") {
 					session.hostMigration = data.hostMigration;
+				}
+
+				if (typeof data.payload === "object") {
+					session.payload = data.payload;
 				}
 
 				client.send(JSON.stringify({
@@ -296,7 +301,7 @@ class mpapiServer {
 						clients: session.clients.map(c => c.clientId),
 						cmd: "join",
 						clientId: client.clientId,
-						data
+						data: session.payload
 					}));
 
 					const joinedData = JSON.stringify({

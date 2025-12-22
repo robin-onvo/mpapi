@@ -25,7 +25,7 @@ export class mpapi {
 
 		this._connect();
 
-		console.loog("mpapi initialized with serverUrl:", this.serverUrl, "and identifier:", this.identifier);
+		console.log("mpapi initialized with serverUrl:", this.serverUrl, "and identifier:", this.identifier);
 	}
 
 	_connect() {
